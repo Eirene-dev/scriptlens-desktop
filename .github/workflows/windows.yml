@@ -48,8 +48,11 @@ jobs:
         shell: pwsh
         run: |
           Start-Process -FilePath "dist-win\ScriptLens-win-x64-setup.exe" -ArgumentList "/S" -Wait
-          $exe = Join-Path $env:LOCALAPPDATA "Programs\ScriptLens\ScriptLens.exe"
-          if (-not (Test-Path $exe)) { Write-Error "not installed at $exe"; exit 1 }
+          # a per-user install goes under %LOCALAPPDATA%\Programs, in a folder named after package.json's "name"
+          $found = Get-ChildItem (Join-Path $env:LOCALAPPDATA "Programs") -Recurse -Filter ScriptLens.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $found) { Write-Error "ScriptLens.exe not found under $env:LOCALAPPDATA\Programs"; exit 1 }
+          $exe = $found.FullName
+          "installed at $exe"
           $p = Start-Process -FilePath $exe -ArgumentList "--smoke-test=smoke\installed" -PassThru -Wait
           Get-Content smoke\installed\smoke.json
           if ($p.ExitCode -ne 0) { Write-Error "smoke test failed ($($p.ExitCode))"; exit 1 }
