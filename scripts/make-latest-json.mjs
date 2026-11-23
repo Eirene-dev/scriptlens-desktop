@@ -1,9 +1,11 @@
 /**
  * latest.json — what the app reads at start (releases/latest/download/latest.json) to say a newer version is out.
  *
- *   node scripts/make-latest-json.mjs [--out out] [--notes "이번 판에서 바뀐 것"]
+ *   node scripts/make-latest-json.mjs [--out out] [--notes "이번 판에서 바뀐 것"] [--mac-only]
  *
  * The version is package.json's. Upload it to the release LAST, after the installers: the app opens `page`.
+ * --mac-only: the release has no Windows installer yet (it is attached after the check on a real Windows PC — then make
+ * this file again without the flag and replace it; the version is the same, so no app is told anything).
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -26,7 +28,7 @@ const latest = {
   files: {
     'mac-arm64': `${REPO}/releases/download/${tag}/ScriptLens-mac-arm64.dmg`,
     'mac-x64': `${REPO}/releases/download/${tag}/ScriptLens-mac-x64.dmg`,
-    'win-x64': `${REPO}/releases/download/${tag}/ScriptLens-win-x64-setup.exe`,
+    ...(process.argv.includes('--mac-only') ? {} : { 'win-x64': `${REPO}/releases/download/${tag}/ScriptLens-win-x64-setup.exe` }),
   },
 };
 mkdirSync(OUT, { recursive: true });
