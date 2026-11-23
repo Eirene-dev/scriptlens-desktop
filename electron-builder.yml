@@ -1,0 +1,32 @@
+# Windows only (the Mac build follows praxis-desktop's way: scripts/package-mac.mjs). Run on GitHub Actions' Windows
+# runner (.github/workflows/windows.yml): npx electron-builder --win nsis --x64 --publish never
+# Unsigned — no Windows certificate: SmartScreen asks once ("추가 정보 → 실행").
+appId: ai.mindvest.scriptlens
+productName: ScriptLens
+copyright: © MindVest
+directories:
+  output: dist-win
+  buildResources: build
+files:
+  - src/**/*
+  - package.json
+asar: false
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+nsis:
+  oneClick: true
+  perMachine: false
+  # no version in the name: lab's page links to releases/latest/download/ScriptLens-win-x64-setup.exe
+  artifactName: ScriptLens-win-x64-setup.${ext}
+  shortcutName: ScriptLens
+  uninstallDisplayName: ScriptLens
+  deleteAppDataOnUninstall: false
+publish: null

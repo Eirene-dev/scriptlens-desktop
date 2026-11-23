@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- ScriptLens: lines of a transcript under a lens. Grid: macOS icon (824 px rounded square in 1024). -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#111827"/>
+  <g stroke="#f9fafb" stroke-width="54" stroke-linecap="round">
+    <line x1="252" y1="338" x2="660" y2="338"/>
+    <line x1="252" y1="482" x2="476" y2="482"/>
+    <line x1="252" y1="626" x2="420" y2="626"/>
+  </g>
+  <circle cx="618" cy="598" r="138" fill="none" stroke="#2dd4bf" stroke-width="54"/>
+  <line x1="720" y1="700" x2="792" y2="772" stroke="#2dd4bf" stroke-width="64" stroke-linecap="round"/>
+</svg>

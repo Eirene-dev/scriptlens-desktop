@@ -1,0 +1,80 @@
+# The Windows installer. On a tag (v*) it also attaches the installer to that tag's release (a draft if none yet).
+# Checked here: the unit tests, the build, and that the app — unpacked, then installed by the installer — opens its
+# window and shows lab's page (--smoke-test). Captions are NOT fetched here: a datacenter IP is likely to be refused by
+# YouTube, and the owner checks that on a real Windows PC (RELEASE.md).
+name: windows
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+        env:
+          # electron-builder fetches the Windows Electron itself; the dev binary is not needed here
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build the installer
+        run: npx electron-builder --win nsis --x64 --publish never
+
+      - name: Smoke test — the unpacked app
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist-win\win-unpacked\ScriptLens.exe" -ArgumentList "--smoke-test=smoke\unpacked" -PassThru -Wait
+          Get-Content smoke\unpacked\smoke.json
+          if ($p.ExitCode -ne 0) { Write-Error "smoke test failed ($($p.ExitCode))"; exit 1 }
+
+      - name: Smoke test — installed by the installer (silent, per user)
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "dist-win\ScriptLens-win-x64-setup.exe" -ArgumentList "/S" -Wait
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\ScriptLens\ScriptLens.exe"
+          if (-not (Test-Path $exe)) { Write-Error "not installed at $exe"; exit 1 }
+          $p = Start-Process -FilePath $exe -ArgumentList "--smoke-test=smoke\installed" -PassThru -Wait
+          Get-Content smoke\installed\smoke.json
+          if ($p.ExitCode -ne 0) { Write-Error "smoke test failed ($($p.ExitCode))"; exit 1 }
+
+      - name: SHA-256
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash dist-win\ScriptLens-win-x64-setup.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  ScriptLens-win-x64-setup.exe" | Out-File -Encoding ascii dist-win\SHA256SUMS-win.txt
+          Get-Content dist-win\SHA256SUMS-win.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scriptlens-windows
+          path: |
+            dist-win/ScriptLens-win-x64-setup.exe
+            dist-win/SHA256SUMS-win.txt
+            smoke/**
+
+      - name: Attach to the tag's release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) { gh release create $tag --draft --title "ScriptLens $tag" --notes "Windows 설치 파일이 먼저 올라왔습니다. Mac 파일과 latest.json을 올린 뒤 게시합니다 (RELEASE.md)." }
+          gh release upload $tag dist-win/ScriptLens-win-x64-setup.exe dist-win/SHA256SUMS-win.txt --clobber
