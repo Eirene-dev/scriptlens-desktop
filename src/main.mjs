@@ -76,6 +76,8 @@ function createMainWindow() {
     },
   });
   win.once('ready-to-show', () => win.show());
+  // the window is "ScriptLens" whatever the page calls itself (the taskbar, Alt+Tab and the title bar show it)
+  win.on('page-title-updated', (e) => e.preventDefault());
   const wc = win.webContents;
 
   // no new windows: links that ask for one open in the default browser
@@ -230,6 +232,7 @@ function runSmoke(win) {
         platform: `${process.platform}-${process.arch}`,
         url: wc.getURL(),
         title: wc.getTitle(),
+        windowTitle: win.getTitle(),
         bridge,
         visible: win.isVisible(),
         size: img.getSize(),

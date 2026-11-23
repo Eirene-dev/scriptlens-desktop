@@ -57,6 +57,25 @@ jobs:
           Get-Content smoke\installed\smoke.json
           if ($p.ExitCode -ne 0) { Write-Error "smoke test failed ($($p.ExitCode))"; exit 1 }
 
+      - name: The names a person sees — Start menu, desktop shortcut, the uninstall list, the window
+        shell: pwsh
+        run: |
+          $bad = @()
+          $start = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+          $lnk = Get-ChildItem $start -Recurse -Filter *.lnk | Where-Object { $_.Name -like '*cript*' }
+          "Start menu: $($lnk.FullName -join ', ')"
+          if (-not ($lnk | Where-Object { $_.Name -eq 'ScriptLens.lnk' })) { $bad += 'Start menu' }
+          $desk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'ScriptLens.lnk'
+          "Desktop: $desk exists=$(Test-Path $desk)"
+          if (-not (Test-Path $desk)) { $bad += 'desktop shortcut' }
+          $u = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object { $_.DisplayName -like '*cript*' }
+          $u | Select-Object DisplayName, Publisher, DisplayVersion, InstallLocation | Format-List | Out-String
+          if (-not ($u | Where-Object { $_.DisplayName -eq 'ScriptLens' })) { $bad += 'uninstall list' }
+          $s = Get-Content smoke\installed\smoke.json | ConvertFrom-Json
+          "Window title: $($s.windowTitle)"
+          if ($s.windowTitle -ne 'ScriptLens') { $bad += 'window title' }
+          if ($bad.Count) { Write-Error "not ScriptLens: $($bad -join ', ')"; exit 1 }
+
       - name: SHA-256
         shell: pwsh
         run: |
