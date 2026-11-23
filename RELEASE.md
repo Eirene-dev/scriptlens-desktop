@@ -39,6 +39,8 @@
 8. **게시** — draft를 게시한다(Latest로 표시). 확인:
    `curl -sL https://github.com/Eirene-dev/scriptlens-desktop/releases/latest/download/latest.json`
    이전 버전 앱을 열어 새 버전 안내가 뜨는지 본다.
+   (v0.1.0: 소유자 결정(2026-11-23)으로 Windows를 실제 PC 확인 **전에** '베타'로 공개했다 — 확인을 마치면 lab `desktop.ts`의
+   `winBeta`를 false로 바꿔 배포한다.)
 9. **Windows를 나중에 붙일 때** — 확인을 마친 설치 파일과 `SHA256SUMS-win.txt`를 게시된 릴리스에 붙이고(웹 화면의 Edit, 또는
    `gh release upload v0.1.1 ScriptLens-win-x64-setup.exe SHA256SUMS-win.txt`), `latest.json`을 플래그 없이 다시 만들어 바꿔 넣고, lab의
    `app/(tool-shell)/scriptlens/_lib/desktop.ts`에서 `winX64`를 링크로 바꿔 배포한다(지금은 null — '준비 중'으로 보인다).
