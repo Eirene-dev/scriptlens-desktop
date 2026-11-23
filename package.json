@@ -1,13 +1,31 @@
 {
   "name": "scriptlens-desktop",
-  "version": "0.0.0",
+  "productName": "ScriptLens",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ScriptLens desktop — opens lab.mindvest.ai/scriptlens and fetches YouTube captions through a hidden YouTube page (no server).",
+  "description": "ScriptLens desktop — shows lab.mindvest.ai/scriptlens and fetches YouTube captions through a hidden YouTube page, no server.",
+  "author": "MindVest",
+  "homepage": "https://github.com/Eirene-dev/scriptlens-desktop",
+  "main": "src/main.mjs",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
+    "start": "electron .",
+    "dev": "electron . --lab-url=http://127.0.0.1:3457/scriptlens",
+    "selftest": "electron .",
+    "test": "vitest run",
+    "icons": "electron scripts/make-icons.mjs",
+    "package:mac": "node scripts/package-mac.mjs",
+    "dist:mac": "node scripts/dist-mac.mjs",
+    "latest-json": "node scripts/make-latest-json.mjs",
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
     "probe": "electron probe/probe.mjs"
   },
   "devDependencies": {
-    "electron": "44.3.0"
+    "electron": "44.3.0",
+    "electron-builder": "26.18.1",
+    "vitest": "4.1.12"
   }
 }

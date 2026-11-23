@@ -3,6 +3,9 @@
 이 Mac(Apple Silicon, macOS 26.7.1)에서 Electron 44.3.0(praxis-desktop과 같은 버전)으로 돌렸다.
 탐침: `probe/probe.mjs`, 파서: `probe/parse.mjs`. 실행 예: `npx electron probe/probe.mjs BrGX9tEMbnw --lang=ko --compare`.
 
+> **주의 — UA를 바꾸지 않는다.** Electron 기본 UA로는 PoToken이 통과하고, UA에서 `Electron/x`를 지워 Chrome처럼 보이게 하면
+> 약 절반이 거부된다(아래 "실험에서 알게 된 것" 1). 앱(`src/captions/fetcher.mjs`)은 UA 문자열을 그대로 둔다. README의 알려진 한계에도 적었다.
+
 ## 결론
 
 - **1순위(플레이어가 직접 /api/timedtext를 부르게 하고 CDP로 본문 읽기)가 된다.** 수동·자동 생성·다국어 모두 성공했고,
