@@ -1,0 +1,13 @@
+{
+  "name": "scriptlens-desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ScriptLens desktop — opens lab.mindvest.ai/scriptlens and fetches YouTube captions through a hidden YouTube page (no server).",
+  "scripts": {
+    "probe": "electron probe/probe.mjs"
+  },
+  "devDependencies": {
+    "electron": "44.3.0"
+  }
+}
