@@ -27,19 +27,23 @@ const argOf = (name) => {
   return a === undefined ? null : a.includes('=') ? a.slice(a.indexOf('=') + 1) : '';
 };
 
+// app.isPackaged looks at the executable's name, and the Mac build keeps Electron's (as praxis-desktop's does) — so ask
+// where the app's files are: a built app runs from <resources>/app. Development-only switches are off in a built app.
+const PACKAGED = app.isPackaged || resolve(app.getAppPath()).startsWith(resolve(process.resourcesPath));
+
 app.setName(APP_NAME);
 if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
-const LAB = resolveLabUrl({ argv: process.argv, env: process.env, isPackaged: app.isPackaged });
+const LAB = resolveLabUrl({ argv: process.argv, env: process.env, isPackaged: PACKAGED });
 const SMOKE = argOf('smoke-test');
-const SELFTEST = app.isPackaged ? null : argOf('selftest');
-const log = createLog(app.getPath('logs'), { echo: !app.isPackaged && !SELFTEST });
+const SELFTEST = PACKAGED ? null : argOf('selftest');
+const log = createLog(app.getPath('logs'), { echo: !PACKAGED && !SELFTEST });
 
 let mainWindow = null;
 let fetcher = null;
 
 // development only: SCRIPTLENS_NO_EXTERNAL=1 logs the address instead of opening the browser (for the UI tests)
-const NO_EXTERNAL = !app.isPackaged && process.env.SCRIPTLENS_NO_EXTERNAL === '1';
+const NO_EXTERNAL = !PACKAGED && process.env.SCRIPTLENS_NO_EXTERNAL === '1';
 const openExternal = (url) => {
   if (navigationVerdict(url, LAB) === 'block') return;
   log('external', { url: NO_EXTERNAL ? url : new URL(url).origin });
@@ -184,7 +188,7 @@ function buildMenu() {
         { role: 'zoomOut', label: '축소' },
         { type: 'separator' },
         { role: 'togglefullscreen', label: '전체 화면' },
-        ...(app.isPackaged ? [] : [{ type: 'separator' }, { role: 'toggleDevTools' }]),
+        ...(PACKAGED ? [] : [{ type: 'separator' }, { role: 'toggleDevTools' }]),
       ],
     },
     ...(isMac ? [{ role: 'windowMenu', label: '윈도우' }] : []),
@@ -282,7 +286,7 @@ if (!SMOKE && !SELFTEST && !app.requestSingleInstanceLock()) {
     fetcher = new CaptionFetcher({
       partition: YT_PARTITION,
       log,
-      forcePanel: !app.isPackaged && process.env.SCRIPTLENS_FORCE_PANEL === '1',
+      forcePanel: !PACKAGED && process.env.SCRIPTLENS_FORCE_PANEL === '1',
     });
     if (SELFTEST) {
       if (process.platform === 'darwin') app.dock?.hide();
@@ -292,14 +296,14 @@ if (!SMOKE && !SELFTEST && !app.requestSingleInstanceLock()) {
     lockDownLabSession();
     registerBridge();
     buildMenu();
-    log('start', { version: app.getVersion(), lab: LAB.href, packaged: app.isPackaged });
+    log('start', { version: app.getVersion(), lab: LAB.href, packaged: PACKAGED });
     mainWindow = createMainWindow();
     if (SMOKE !== null) {
       runSmoke(mainWindow);
       return;
     }
     // development only: SCRIPTLENS_UPDATE_URL points the check at another latest.json
-    const updateUrl = !app.isPackaged && process.env.SCRIPTLENS_UPDATE_URL ? process.env.SCRIPTLENS_UPDATE_URL : undefined;
+    const updateUrl = !PACKAGED && process.env.SCRIPTLENS_UPDATE_URL ? process.env.SCRIPTLENS_UPDATE_URL : undefined;
     mainWindow.webContents.once('did-finish-load', () => {
       setTimeout(() => checkForUpdate({ window: mainWindow, currentVersion: app.getVersion(), log, url: updateUrl }), 3000);
     });
