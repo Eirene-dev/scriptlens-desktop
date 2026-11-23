@@ -1,7 +1,8 @@
-# The Windows installer. On a tag (v*) it also attaches the installer to that tag's release (a draft if none yet).
+# The Windows installer, as this run's artifact (scriptlens-windows) — never attached to a release from here: Windows is
+# published only after a check on a real Windows PC, and then that very file goes to the release by hand (RELEASE.md).
 # Checked here: the unit tests, the build, and that the app — unpacked, then installed by the installer — opens its
 # window and shows lab's page (--smoke-test). Captions are NOT fetched here: a datacenter IP is likely to be refused by
-# YouTube, and the owner checks that on a real Windows PC (RELEASE.md).
+# YouTube.
 name: windows
 
 on:
@@ -10,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -67,14 +68,3 @@ jobs:
             dist-win/ScriptLens-win-x64-setup.exe
             dist-win/SHA256SUMS-win.txt
             smoke/**
-
-      - name: Attach to the tag's release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = "${{ github.ref_name }}"
-          gh release view $tag *> $null
-          if ($LASTEXITCODE -ne 0) { gh release create $tag --draft --title "ScriptLens $tag" --notes "Windows 설치 파일이 먼저 올라왔습니다. Mac 파일과 latest.json을 올린 뒤 게시합니다 (RELEASE.md)." }
-          gh release upload $tag dist-win/ScriptLens-win-x64-setup.exe dist-win/SHA256SUMS-win.txt --clobber

@@ -6,7 +6,7 @@
 | 파일 | 만드는 곳 |
 |---|---|
 | `ScriptLens-mac-arm64.dmg` · `ScriptLens-mac-x64.dmg` (+ 같은 이름의 `.zip`, `SHA256SUMS-mac.txt`) | 이 Mac — `npm run dist:mac` (praxis-desktop 방식, ad-hoc 서명) |
-| `ScriptLens-win-x64-setup.exe` (+ `SHA256SUMS-win.txt`) | GitHub Actions의 Windows runner — 태그를 올리면 `.github/workflows/windows.yml` |
+| `ScriptLens-win-x64-setup.exe` (+ `SHA256SUMS-win.txt`) | GitHub Actions의 Windows runner — 태그를 올리면 `.github/workflows/windows.yml`이 만들어 **아티팩트로만** 둔다. 실제 Windows PC에서 확인한 뒤 그 파일을 손으로 릴리스에 붙인다 |
 | `latest.json` | 이 Mac — `npm run latest-json` · **맨 마지막에** 올린다 |
 
 앱은 시작할 때 `releases/latest/download/latest.json`을 읽어, 자기보다 높은 버전이면 내려받기 페이지를 안내한다.
@@ -26,15 +26,22 @@
    - 확인: `out/mac-arm64/ScriptLens.app/Contents/MacOS/Electron --smoke-test=out/smoke` → `out/smoke/smoke.json`의 `ok: true`, `bridge: "object"`
    - 이 Mac(Apple Silicon, Rosetta 없음)에서는 Intel 빌드를 실행해 볼 수 없다. 구조(아키텍처·서명·fuse)만 스크립트가 확인한다.
 4. **태그 올리기 → Windows 빌드** — `git tag v0.1.1 && git push origin main v0.1.1`
-   - Actions가 검사 → 설치 파일 빌드 → 압축 해제본과 설치본을 각각 실행해 창이 뜨는지 확인 → `v0.1.1` 릴리스(없으면 draft로 만듦)에 설치 파일을 붙인다.
-   - Actions 화면의 아티팩트 `scriptlens-windows`에 `smoke/*/smoke.png`(창 화면)가 있다.
-   - Actions에서는 자막 가져오기를 시험하지 않는다(데이터센터 IP는 YouTube가 막을 가능성이 크다). 아래 "실제 Windows PC 확인"을 본다.
-5. **Mac 파일 올리기** — draft 릴리스에 `out/dist/ScriptLens-mac-*.dmg`, `*.zip`, `SHA256SUMS-mac.txt`
-   (`gh release upload v0.1.1 out/dist/ScriptLens-mac-* out/dist/SHA256SUMS-mac.txt --clobber`)
-6. **latest.json** — `npm run latest-json -- --notes "바뀐 것 한두 줄"` → `out/dist/latest.json`을 **마지막으로** 올린다.
-7. **게시** — draft를 게시한다(Latest로 표시). 확인:
+   - Actions가 검사 → 설치 파일 빌드 → 압축 해제본과 설치본을 각각 실행해 창이 뜨는지 확인 → 아티팩트 `scriptlens-windows`
+     (설치 파일, `SHA256SUMS-win.txt`, `smoke/*/smoke.png` 창 화면). **릴리스에는 붙이지 않는다.**
+   - Actions에서는 자막 가져오기를 시험하지 않는다(데이터센터 IP는 YouTube가 막을 가능성이 크다).
+5. **실제 Windows PC 확인** — 아티팩트의 설치 파일로 아래 목록을 본다. 통과하면 그 파일을 6에서 함께 붙인다.
+   아직이면 Mac만 게시하고(6~8), Windows는 확인한 뒤 9로 붙인다.
+6. **릴리스 만들기(draft)** — 태그 `v0.1.1`, 제목 `ScriptLens v0.1.1`. 붙일 것: `out/dist/ScriptLens-mac-*.dmg` · `*.zip` ·
+   `SHA256SUMS-mac.txt` (+ 확인을 마친 Windows 설치 파일 · `SHA256SUMS-win.txt`). 웹 화면(Releases › Draft a new release)에
+   끌어다 놓거나 `gh release create v0.1.1 --draft --title "ScriptLens v0.1.1" --notes "…" out/dist/ScriptLens-mac-* out/dist/SHA256SUMS-mac.txt`
+7. **latest.json** — `npm run latest-json -- --notes "바뀐 것 한두 줄"` → `out/dist/latest.json`을 **마지막으로** 붙인다.
+8. **게시** — draft를 게시한다(Latest로 표시). 확인:
    `curl -sL https://github.com/Eirene-dev/scriptlens-desktop/releases/latest/download/latest.json`
-8. 이전 버전 앱을 열어 새 버전 안내가 뜨는지 본다.
+   이전 버전 앱을 열어 새 버전 안내가 뜨는지 본다.
+9. **Windows를 나중에 붙일 때** — 확인을 마친 설치 파일과 `SHA256SUMS-win.txt`를 게시된 릴리스에 붙이고(웹 화면의 Edit, 또는
+   `gh release upload v0.1.1 ScriptLens-win-x64-setup.exe SHA256SUMS-win.txt`), lab의
+   `app/(tool-shell)/scriptlens/_lib/desktop.ts`에서 `winX64`를 링크로 바꿔 배포한다(지금은 null — '준비 중'으로 보인다).
+   그 뒤 판부터는 두 플랫폼을 다 붙인 다음 게시한다: Mac만 있는 새 판을 게시하면 Windows 앱이 새 버전 안내를 받고도 받을 파일이 없다.
 
 YouTube가 바뀌어 자막 가져오기가 멈췄을 때도 같은 절차다. 고친 버전을 내면 사용자는 앱을 열 때 안내를 받는다.
 
