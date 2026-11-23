@@ -30,8 +30,12 @@ export const LIMITS = {
   maxLoads: 2,
   /** an ad whose position has not moved this long is stalled: go to the panel */
   adStallMs: 15_000,
-  /** press YouTube's Skip button when it offers one (false: always wait the ad out, up to hardMs) */
-  pressSkip: true,
+  /** ads past this long (in all, this request) send us to the transcript panel instead of waiting them out */
+  adPanelMs: 10_000,
+  /** how long the panel may take while the ad plays on — after that, back to waiting the ad out (up to hardMs) */
+  adPanelTryMs: 10_000,
+  /** press YouTube's Skip button when it offers one — off for now (the panel covers long ads); the code stays */
+  pressSkip: false,
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
@@ -353,10 +357,36 @@ export class CaptionFetcher {
       return ok(page.cache.get(key));
     }
 
+    const panelResult = async (snippets) => {
+      await page.eval(PAUSE).catch(() => null);
+      this.#keepPage();
+      return ok({
+        video_id: videoId,
+        language: 'YouTube 스크립트 패널',
+        language_code: 'panel',
+        is_generated: false,
+        title: page.info.title,
+        source: 'panel',
+        snippets,
+      });
+    };
+
     if (!this.#forcePanel) {
+      let adPanel = true; // one go at the panel while a long ad plays
       for (let load = 1; ; load++) {
-        const r = await this.#viaPlayer(page, t, dl, job);
+        const r = await this.#viaPlayer(page, t, dl, job, { adPanel });
         this.#log('player', { videoId, track: key, load, why: r.ok ? 'ok' : r.why, ad: r.ad || undefined, adMs: Math.round(dl.adMs()) || undefined });
+        if (r.why === 'ad-long') {
+          // the panel is the page's, not the player's: it does not wait for the ad
+          adPanel = false;
+          const t0 = now();
+          const snippets = await this.#viaPanel(page, dl, job, this.#limits.adPanelTryMs);
+          const st = await page.eval(PLAYER_STATE).catch(() => null);
+          this.#log('panel', { videoId, track: key, ok: !!snippets, duringAd: true, adStill: !!st?.ad, ms: Math.round(now() - t0) });
+          if (snippets) return panelResult(snippets);
+          load--; // the same load: wait the ad out after all
+          continue;
+        }
         if (r.ok) {
           const data = {
             video_id: videoId,
@@ -383,34 +413,21 @@ export class CaptionFetcher {
 
     const snippets = await this.#viaPanel(page, dl, job);
     this.#log('panel', { videoId, track: key, ok: !!snippets });
-    if (snippets) {
-      const data = {
-        video_id: videoId,
-        language: 'YouTube 스크립트 패널',
-        language_code: 'panel',
-        is_generated: false,
-        title: page.info.title,
-        source: 'panel',
-        snippets,
-      };
-      await page.eval(PAUSE).catch(() => null);
-      this.#keepPage();
-      return ok(data);
-    }
+    if (snippets) return panelResult(snippets);
     const net = page.netErrors.length > 0;
     this.#closePage(); // something is off: the next try starts clean
     return fail(net ? 'network' : 'timeout');
   }
 
-  /** 1순위 → { ok: true, snippets } | { ok: false, why } */
-  async #viaPlayer(page, track, dl, job) {
+  /** 1순위 → { ok: true, snippets } | { ok: false, why } — why 'ad-long': ads past adPanelMs, try the panel (opts.adPanel) */
+  async #viaPlayer(page, track, dl, job, { adPanel = false } = {}) {
     const signal = job.controller.signal;
     const leftForUs = () => dl.left() - this.#limits.panelReserveMs;
     const want = (x) => x.kind === 'timedtext' && x.i >= page.loadBase && isWantedTimedtext(x.url, page.videoId, track);
     let ad = false;
 
     // a. turn the track on once the content player offers it — an ad in front is waited out, its time not counted;
-    //    when YouTube offers its Skip button, it is pressed; an ad that stops moving sends us to the panel
+    //    ads past adPanelMs, or one that stops moving, send us to the panel (and Skip is pressed only if pressSkip)
     let on = null;
     const t1 = now();
     const adLog = { first: null, samples: 0, skipPressed: 0, lastPress: 0, lastT: null, lastMove: 0, kicked: false };
@@ -443,6 +460,11 @@ export class CaptionFetcher {
           dl.noteAd(false);
           this.#log('ad', { videoId: page.videoId, ...adLog, stalled: true, adMs: Math.round(dl.adMs()) });
           return { ok: false, why: 'ad-stalled', ad };
+        }
+        if (adPanel && dl.adMs() > this.#limits.adPanelMs) {
+          dl.noteAd(false);
+          this.#log('ad', { videoId: page.videoId, first: adLog.first, skip: !!st.skip, adMs: Math.round(dl.adMs()), toPanel: true });
+          return { ok: false, why: 'ad-long', ad };
         }
       } else {
         if (ad && adLog.samples) {
@@ -497,13 +519,18 @@ export class CaptionFetcher {
     }
   }
 
-  /** 2순위: the transcript panel's own response — one language, whole seconds; null if it gave nothing */
-  async #viaPanel(page, dl, job) {
+  /**
+   * 2순위: the transcript panel's own response — one language, whole seconds; null if it gave nothing in `ms`.
+   * Any panel response of this load counts: one that came late to an earlier try is not asked for again.
+   */
+  async #viaPanel(page, dl, job, ms = Infinity) {
     const signal = job.controller.signal;
+    const until = now() + Math.min(ms, Math.max(0, dl.left()));
+    const left = () => until - now();
     await page.attachCdp();
-    const from = page.recs.length;
+    const from = page.loadBase;
     let opened = null;
-    while (!opened && dl.left() > 0) {
+    while (!opened && left() > 0) {
       if (signal.aborted) throw new Aborted();
       opened = await page.eval(OPEN_PANEL).catch(() => null);
       if (!opened) await sleep(300);
@@ -517,7 +544,7 @@ export class CaptionFetcher {
       } catch {
         return false;
       }
-    }, dl.left());
+    }, left());
     return r ? parsePanel(r.body, len) : null;
   }
 }

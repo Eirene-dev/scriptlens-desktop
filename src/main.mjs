@@ -9,6 +9,7 @@
  *   electron . --lab-url=http://127.0.0.1:3457/scriptlens   another lab (a local one; a packaged app takes only local)
  *   electron . --smoke-test=<dir>                open, wait for the page, write <dir>/smoke.json and smoke.png, quit
  *   electron . --selftest=<id>[:<lang>[:asr]]    (development only) the fetcher without the window — JSON on stdout
+ *                                                (lang "auto": the video's first track)
  */
 import { app, BrowserWindow, Menu, ipcMain, session, shell } from 'electron';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -252,7 +253,9 @@ async function runSelftest(spec) {
   out.listTracks = tl.ok ? { ms: ms(), title: tl.data.title, tracks: tl.data.tracks.map((t) => `${t.language_code}${t.is_generated ? ':asr' : ''}`) } : { ms: ms(), ...tl };
   const steps = (lang ? [lang] : []).concat(process.env.SELFTEST_ALSO ? process.env.SELFTEST_ALSO.split(',') : []);
   for (const step of steps) {
-    const [code, k] = step.includes(':') ? step.split(':') : [step, kind];
+    // "auto": the first track the video has
+    const first = step === 'auto' && tl.ok ? tl.data.tracks[0] : null;
+    const [code, k] = first ? [first.language_code, first.is_generated ? 'asr' : ''] : step.includes(':') ? step.split(':') : [step, kind];
     const t1 = performance.now();
     const r = await fetcher.getTranscript(id, { language_code: code, is_generated: k === 'asr' });
     (out.getTranscript ??= []).push(
